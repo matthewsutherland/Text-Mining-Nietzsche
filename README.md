@@ -1,7 +1,7 @@
-# Text Mining Nietzsche
+# Text Mining Nietzsche in R
 
 ## Introduction
-In this project I use *Latent Dirichlet Allocation* (LDA) to understand the topics of Nietzsche’s published works. The [Gutenberg project](http://www.gutenberg.org/) has made all of his works freely available, and it is from here that we will import our Nietzsche text data. 
+In this project I use *Latent Dirichlet Allocation* (LDA) to understand the topics of Nietzsche’s published works. The [Gutenberg project](http://www.gutenberg.org/) has made all of Nietzsche's works freely available, and it is from here that we will import his texts. 
 
 We begin by creating a character vector of partial urls for each of Nietzsche's books. 
 
@@ -14,7 +14,7 @@ nietz_url <- c("files/51356/51356-0", "cache/epub/5652/pg5652", "cache/epub/3822
                "files/52914/52914-0", "files/52915/52915-0")
 ```
 
-Now we define an empty character vector `urls`, and create the function `make_urls` to build the full URL. Then the function is then called and the lists are saved into `nietz_book_urls`. 
+Now we define an empty character vector `urls`, and create the function `make_urls` to build the full URL. Then the function is called and the lists are saved into `nietz_book_urls`. 
 
 ```
 urls <- vector()
@@ -29,7 +29,7 @@ nietz_book_urls <- make_urls(nietz_url)
 ```
 Next the `dplyr` package is loaded to use the `data_frame` function, as well as for other features like piping (%>%). 
 
-Every line for every book is saved into `full_texts`, all within a single column. There is also a second column that contains the book title. The function `read_books` scrapes all of the text from the Gutenberg site, which is provided in .csv format. For some of the books the text for a line was spread across 2 columns, instead of 1. The function `read_books` corrects for that by gathering both into a single column (see if/else statement). Finally, the list is converted into a data frame and saved into `full_texts`. The `read_books` function is then called, and the output is saved into `nietz_full_texts`.
+Every line for every book is saved into `full_texts`, all within a single column. There is also a second column that contains the book title. The function `read_books` scrapes all of the text from the Gutenberg site, which is provided in .csv format. For some of the books the text for a line was spread across 2 columns, instead of 1. The function `read_books` corrects for that by gathering both columns into a single column (see if/else statement). Finally, the list is converted into a data frame and saved into `full_texts`. The `read_books` function is then called, and the output is saved into `nietz_full_texts`.
 
 ```
 library(dplyr)
@@ -52,7 +52,7 @@ read_books <- function(text_urls){
 }
 nietz_full_texts <- read_books(nietz_book_urls)
 ```
-Next we ensure that all non-Nietzsche text (i.e. translator introductions and forewords) is excluded from our data set.  Given the inconsistency in text structure across the individual books, the relevant text is selected using row numbers rather regular expressions, with the book names assigned to `title`. The excluded text is labeled 'Supplementary Texts'.
+Next we ensure that non-Nietzsche text (i.e. translator introductions and forewords) is excluded from our data set.  Given the inconsistency in text structure across the individual books, the relevant text is selected using row numbers rather than regular expressions, with the book names assigned to `title`. The excluded text, which consists of translator introductions etc. is labeled 'Supplementary Texts'.
 
 ```
 
@@ -78,7 +78,7 @@ nietz_full_texts$title <-
   ifelse(nietz_rows >= 129623 & nietz_rows <= 139729, "The Will to Power: Books 3 & 4", 
                                                       "Supplementary Texts"))))))))))))))))))
 ```
-Stop words are highly common words like *the* and *if*, which are in many ways uninformative for topic modeling and thus need to be removed. This removal is done below with a list called `stop_words` provided by the `tidytext` package. 
+Stop words are highly common words like *the* and *if*, which are uninformative and need to be removed prior to analysis. This removal is done below with a list called `stop_words` provided by the `tidytext` package. 
 
 I also define a list of custom stop words for archaic English, as this style was used in some of the translations of Nietzsche's books. Any remaining underscores that are still present due to abnormal punctuation and spacing are also removed.
 
@@ -90,7 +90,7 @@ custom_stop_words <- data_frame(word = c("ye", "thou", "thee", "hast", "dost", "
 
 nietz_full_texts$text <- gsub("_", "", nietz_full_texts$text)
 ```
-Now the text must be *tokenized*, meaning each word is given its own row and is considered an ‘observation’. This is done with `unnest_tokens` (tidytext). We also filter for stop words and ensure that the supplementary text is not included. The `group_by` function (dplyr) allows the grouping of variables, such that operations are performed separately for given levels within a variable. The `mutate` function (dplyr) then creates a new variable (i.e. new column) that contains the row number for each line of text. Finally, the text is ungrouped—the data is now in tidy format. 
+Now the text must be *tokenized*, meaning each word is given its own row and is considered an ‘observation’. This is done with `unnest_tokens` (tidytext). We also filter for stop words and ensure that the supplementary text is not included. The `group_by` function (dplyr) allows the grouping of variables, such that operations are performed separately for given levels within a variable. The `mutate` function (dplyr) then creates a new variable (i.e. new column) that contains the row number for each line of text within each book. Finally, the text is ungrouped—the data is now in tidy format. 
 
 ```
 nietz_tidy <- nietz_full_texts %>% group_by(title) %>% 
@@ -101,7 +101,7 @@ nietz_tidy <- nietz_full_texts %>% group_by(title) %>%
   anti_join(custom_stop_words, by = "word")
 ```
 
-Next we will make a word cloud to see what terms in general Nietzsche tends to use the most. To do this we load the `wordcloud` package and define the background and color scheme. Then the word frequencies are tallied with the `count` function (dplyr). The 100 most frequent words are included in the plot, reflecting the most utilized words throughout all of Nietzsche’s books, and is thus a marker of the topics he discusses in general. 
+Next we will make a word cloud to see what terms in general Nietzsche tends to use the most. To do this we load the `wordcloud` package and define the background and color scheme. Then the word frequencies are tallied with `count` (dplyr). The 100 most frequent words are included in the plot, reflecting the most utilized words throughout all of Nietzsche’s books, which is a marker of the topics he discusses in general. 
 
 
 ```
@@ -117,6 +117,7 @@ nietz_tidy %>%
 
 
 
+![](https://github.com/matthewsutherland/Text-Mining-Nietzsche/blob/master/images/graph1.png)
 
 There is a way of analyzing a word's uniqueness within each individual book, and this measure of uniqueness is referred to as the *term-frequency-inverse-document-frequency* (tf-idf). To beign a list called `nietz_book_words` is created that contains all of Nietzsche's words counted separately for each book. Another variable `nietz_total_words` holds the total count of words used within each book. The 'total words' column in `nietz_total_words` is then attached to `nietz_book_words` via `left_join`.
 
@@ -131,7 +132,7 @@ nietz_total_words <- nietz_book_words %>%
 nietz_book_words <- left_join(nietz_book_words, nietz_total_words)
 ```
 
-Subsequently, the tf-idf is calculated separately for each word within each book using `bind_tf_idf` from the `tidytext` library. Then the data are rearranged in `nietz_book_words`, such that the words with the highest tf-idf appear at the top of the column. The 'word' column is also converted into a factor, with the levels being equal to the reverse number of times a word appears (see `rev`). After that I select 6 of Nietzsche’s books that I am most interested in reading and filter for the 15 words with the highest tf-idf values within each book. 
+Subsequently, the tf-idf is calculated separately for each word within each book using `bind_tf_idf` from the `tidytext` package. Then the data are rearranged in `nietz_book_words`, such that the words with the highest tf-idf appear at the top of the column. The 'word' column is also converted into a factor, with the levels being equal to the reverse number of times a word appears (see `rev`). After that I select 6 of Nietzsche’s books that I am most interested in reading and filter for the 15 words with the highest tf-idf values within each book. 
 
 ```
 nietz_book_words <- nietz_book_words %>%
@@ -150,7 +151,7 @@ plot_nietz_bar <- plot_nietz %>%
   group_by(title) %>% top_n(15) %>% ungroup()
 ```
 
-Before plotting the data saved in `plot_nietz_bar`, `ggplot2` is loaded for the upcoming visual graphics. The `fill` option makes the bars a different color for each book, and `geon_bar` tells `ggplot` to make a bar graph (without a legend). The x and y variables are then labeled and `facet_wrap` organizes the 6 plots into a single graphic. The x and y coordinates are then flipped so that the bars appear horizontal, rather than vertical. 
+Before plotting `plot_nietz_bar`, `ggplot2` is loaded for the upcoming visual graphics. The `fill` option makes the bars a different color for each book, and `geon_bar` tells `ggplot` to make a bar graph (without a legend). The x and y variables are then labeled and `facet_wrap` organizes the 6 plots into a single graphic. The x and y coordinates are then flipped so that the bars appear horizontal, rather than vertical. 
 
 ```
 library(ggplot2)
@@ -163,7 +164,9 @@ plot_nietz_bar %>%
   
 ```
 
-Upon viewing this graph, the two books that look most interesting to me are *We Philologists* and *Thoughts Out of Season: Part 2*. Now we will create the lists `wephil` and `seaout` to hold text from each of these two books. 
+![](https://github.com/matthewsutherland/Text-Mining-Nietzsche/blob/master/images/graph2.png)
+
+Upon viewing this graph, the two books that look most interesting to me are *We Philologists* and *Thoughts Out of Season: Part 2*. So now we will create the lists `wephil` and `seaout` to hold text from each of these two books. 
 
 ```
 wephil <- nietz_full_texts %>% filter(title=="We Philologists")
@@ -218,7 +221,7 @@ by_section_tidy_seaout <- by_section_seaout %>%
   count(document, word, sort = TRUE) 
 ```
 
-Now a Document Term Matrix for both books are created in order to conduct the LDA analysis.
+Now a Document Term Matrix for both books is created in order to conduct the LDA analysis.
 
 
 ```
@@ -229,7 +232,7 @@ sections_dtm_seaout <- by_section_tidy_seaout %>%
   cast_dtm(document, word, n)
 ```
 
-The LDA analysis is run with `LDA`, which comes from the `topicmodels` package. But before this is done, we must decide how many topics we would like to model for each book. I have decided to use 10 (k) topics, and for replication purposes, we will seed the model with 1234, rather than a random number which is what should normally be used.
+The LDA analysis is run with `LDA`, which comes from the `topicmodels` package. But before this is done, we must decide how many topics to model for each book. I have decided to use 10 (k) topics, and for replication purposes, we will seed the model with 1234, rather than a random number which is what should normally be done.
 
 ```
 library(topicmodels)
@@ -241,7 +244,7 @@ sections_lda_seaout <- LDA(sections_dtm_seaout, k = 10, control = list(seed = 12
 
 The output of the LDA function, which was saved in two variables—`sections_lda_wephil` and `sections_lda_seaout`, contains beta values for each word showing the degree to which each word matches the given topic in which it is grouped. 
 
-Now that we have beta values for each word, we re-tidy the data, and then we find the words with the highest beta values within each of the 10 topics that were generated by `LDA`.  
+Now that we have beta values for each word, we re-tidy the data, and then find the words with the highest beta values within each of the 10 topics generated by `LDA`.  
 
 ```
 top_terms_wephil <- tidy(sections_lda_wephil, matrix = "beta") %>%
@@ -269,7 +272,10 @@ top_terms_seaout %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1), plot.title = element_text(hjust = 0.5))
 ```
 
-From this we can visualize, for each book, 10 conceptual topics that are made up of 5 concepts—the 5 words with the highest beta values. By viewing these words in groups, one can understand what ideas are discussed most within each book (i.e. the book’s topics). This makes the decision of which book to read much easier, and might be an alternative to book reviews and numeric ranking systems. 
+![](https://github.com/matthewsutherland/Text-Mining-Nietzsche/blob/master/images/graph3.png)
+![](https://github.com/matthewsutherland/Text-Mining-Nietzsche/blob/master/images/graph4.png)
+
+From this we can visualize, for each book, 10 conceptual topics that are made up of 5 concepts—the 5 words with the highest beta values. By viewing these words in groups, one can understand what ideas are discussed most within each book (i.e. the book’s topics). This makes the decision of which book to read much easier for me, and might serve as an alternative to book reviews and numeric ranking systems. 
 
 For information on the *Latent Dirichlet Allocation* model, see this [link](https://cran.r-project.org/web/packages/topicmodels/vignettes/topicmodels.pdf).
 
